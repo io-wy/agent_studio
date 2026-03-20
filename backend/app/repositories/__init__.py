@@ -3,6 +3,7 @@ from app.repositories.tenant import TenantRepository, ProjectRepository
 from app.repositories.dataset import DatasetRepository, DatasetVersionRepository
 from app.repositories.training import TrainingJobRepository, ModelRepository, ModelVersionRepository
 from app.repositories.agent import AgentSpecRepository, AgentRevisionRepository, AgentRunRepository
+from app.repositories.deployment import DeploymentRepository
 
 __all__ = [
     "TenantRepository",
@@ -15,4 +16,5 @@ __all__ = [
     "AgentSpecRepository",
     "AgentRevisionRepository",
     "AgentRunRepository",
+    "DeploymentRepository",
 ]
