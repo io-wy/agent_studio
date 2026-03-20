@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.api.v1.endpoints import tenant, dataset, training, agent, deployment
+from app.api.v1.endpoints import tenant, dataset, training, agent, deployment, events
 
 
 @asynccontextmanager
@@ -44,6 +44,7 @@ app.include_router(agent.router, prefix="/api/v1")
 app.include_router(agent.revision_router, prefix="/api/v1")
 app.include_router(agent.run_router, prefix="/api/v1")
 app.include_router(deployment.router, prefix="/api/v1")
+app.include_router(events.router)  # /ws, /events/sse, /events/publish
 
 
 @app.get("/health")
