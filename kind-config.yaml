@@ -1,0 +1,19 @@
+# Kind cluster config for Agent Studio
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: agent-studio
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Map port 80 and 443 to the control plane for ingress
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+    labels:
+      # Enable metallb for LoadBalancer
+      ingress-ready: "true"
+      # Enable GPU support (if available)
+      # gpu: "nvidia.com/gpu"
