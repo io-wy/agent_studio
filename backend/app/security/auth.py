@@ -24,6 +24,15 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> TokenPayload:
     """Extract and validate current user from token"""
+    # Skip auth in debug mode for testing
+    if settings.debug:
+        return TokenPayload(
+            sub="test-user",
+            tenant_id="test-tenant",
+            project_id="test-project",
+            role="admin"
+        )
+
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

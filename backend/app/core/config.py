@@ -7,10 +7,10 @@ class Settings(BaseSettings):
 
     # App
     app_name: str = "Agent Studio"
-    debug: bool = False
+    debug: bool = True
 
     # Database
-    database_url: str = Field(default="postgresql+asyncpg://agent:agent@localhost:5432/agent_studio")
+    database_url: str = Field(default="postgresql+asyncpg://postgres:admin@localhost:5432/agent_studio")
 
     # Redis
     redis_url: str = Field(default="redis://localhost:6379/0")

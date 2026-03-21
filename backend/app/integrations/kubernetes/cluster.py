@@ -18,7 +18,7 @@ class ClusterGateway:
         self._client: Optional[ApiClient] = None
         self._core_v1: Optional[client.CoreV1Api] = None
         self._batch_v1: Optional[client.BatchV1Api] = None
-        self._apps_v1: Optional[client.AppsV1Api] = self._get_apps_v1()
+        self._apps_v1: Optional[client.AppsV1Api] = None
         self._networking_v1: Optional[client.NetworkingV1Api] = None
 
     def _get_core_v1(self) -> client.CoreV1Api:
@@ -204,5 +204,16 @@ class ClusterGateway:
             raise
 
 
-# Singleton instance
-cluster_gateway = ClusterGateway()
+# Singleton instance - lazy initialization
+_cluster_gateway: Optional["ClusterGateway"] = None
+
+
+def get_cluster_gateway() -> "ClusterGateway":
+    """Get or create cluster gateway singleton"""
+    global _cluster_gateway
+    if _cluster_gateway is None:
+        _cluster_gateway = ClusterGateway()
+    return _cluster_gateway
+
+
+cluster_gateway = get_cluster_gateway()
