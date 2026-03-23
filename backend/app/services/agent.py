@@ -58,6 +58,10 @@ class AgentService:
         """List agents in project"""
         return await self.spec_repo.list_by_project(project_id, skip, limit)
 
+    async def count_agents(self, project_id: str) -> int:
+        """Count agents in project"""
+        return await self.spec_repo.count_by_project(project_id)
+
     async def update_agent(self, spec_id: str, **kwargs) -> AgentSpec:
         """Update agent spec"""
         spec = await self.spec_repo.get(spec_id)
@@ -102,9 +106,13 @@ class AgentService:
         """Get agent revision"""
         return await self.revision_repo.get(revision_id)
 
-    async def list_revisions(self, agent_spec_id: str) -> List[AgentRevision]:
+    async def list_revisions(self, agent_spec_id: str, skip: int = 0, limit: int = 100) -> List[AgentRevision]:
         """List all revisions of an agent"""
-        return await self.revision_repo.list_by_spec(agent_spec_id)
+        return await self.revision_repo.list_by_spec(agent_spec_id, skip, limit)
+
+    async def count_revisions(self, agent_spec_id: str) -> int:
+        """Count revisions of an agent"""
+        return await self.revision_repo.count_by_spec(agent_spec_id)
 
     async def publish_revision(self, revision_id: str) -> AgentRevision:
         """Publish agent revision"""
@@ -179,6 +187,10 @@ class AgentService:
     async def list_runs(self, revision_id: str, skip: int = 0, limit: int = 100) -> List[AgentRun]:
         """List runs for a revision"""
         return await self.run_repo.list_by_revision(revision_id, skip, limit)
+
+    async def count_runs(self, revision_id: str) -> int:
+        """Count runs for a revision"""
+        return await self.run_repo.count_by_revision(revision_id)
 
     async def interrupt_run(self, run_id: str, reason: Optional[str] = None) -> AgentRun:
         """Interrupt a running agent"""

@@ -11,6 +11,8 @@ from app.schemas import (
     TrainingJobCreate, TrainingJobUpdate, TrainingJobResponse, TrainingJobCancelRequest,
     ModelCreate, ModelUpdate, ModelResponse,
     ModelVersionResponse, ModelVersionPromoteRequest,
+    PaginatedResponse,
+    create_paginated_response,
 )
 from app.security import get_current_user, TokenPayload
 
@@ -55,18 +57,25 @@ async def get_training_job(
     return job
 
 
-@router.get("", response_model=List[TrainingJobResponse])
+@router.get("", response_model=PaginatedResponse[TrainingJobResponse])
 async def list_training_jobs(
     project_id: str,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     """List training jobs in project"""
     service = TrainingService(db)
-    jobs = await service.list_jobs(project_id, skip, limit)
-    return jobs
+    skip = (page - 1) * page_size
+    jobs = await service.list_jobs(project_id, skip, page_size)
+    total = await service.count_jobs(project_id)
+    return create_paginated_response(
+        [TrainingJobResponse.model_validate(j) for j in jobs],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @router.post("/{job_id}/submit")
@@ -167,11 +176,11 @@ async def get_model(
     return model
 
 
-@model_router.get("", response_model=List[ModelResponse])
+@model_router.get("", response_model=PaginatedResponse[ModelResponse])
 async def list_models(
     project_id: str,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
@@ -179,13 +188,22 @@ async def list_models(
     from app.repositories.training import ModelRepository
 
     repo = ModelRepository(db)
-    models = await repo.list_by_project(project_id, skip, limit)
-    return models
+    skip = (page - 1) * page_size
+    models = await repo.list_by_project(project_id, skip, page_size)
+    total = await repo.count_by_project(project_id)
+    return create_paginated_response(
+        [ModelResponse.model_validate(m) for m in models],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
-@model_router.get("/{model_id}/versions", response_model=List[ModelVersionResponse])
+@model_router.get("/{model_id}/versions", response_model=PaginatedResponse[ModelVersionResponse])
 async def list_model_versions(
     model_id: str,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
@@ -193,8 +211,15 @@ async def list_model_versions(
     from app.repositories.training import ModelVersionRepository
 
     repo = ModelVersionRepository(db)
-    versions = await repo.list_by_model(model_id)
-    return versions
+    skip = (page - 1) * page_size
+    versions = await repo.list_by_model(model_id, skip, page_size)
+    total = await repo.count_by_model(model_id)
+    return create_paginated_response(
+        [ModelVersionResponse.model_validate(v) for v in versions],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @model_router.get("/versions/{version_id}", response_model=ModelVersionResponse)

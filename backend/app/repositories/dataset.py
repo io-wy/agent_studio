@@ -51,6 +51,12 @@ class DatasetRepository:
         )
         return list(result.scalars().all())
 
+    async def count_by_project(self, project_id: str) -> int:
+        result = await self.db.execute(
+            select(Dataset).where(Dataset.project_id == project_id)
+        )
+        return len(list(result.scalars().all()))
+
     async def update(self, dataset: Dataset, **kwargs) -> Dataset:
         for key, value in kwargs.items():
             if value is not None and hasattr(dataset, key):

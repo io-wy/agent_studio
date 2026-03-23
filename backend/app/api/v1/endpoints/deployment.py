@@ -11,6 +11,8 @@ from app.schemas import (
     DeploymentCreate, DeploymentUpdate, DeploymentResponse,
     DeploymentScaleRequest, DeploymentTrafficShiftRequest, DeploymentRollbackRequest,
     DeploymentHealthResponse,
+    PaginatedResponse,
+    create_paginated_response,
 )
 from app.security import get_current_user, TokenPayload
 
@@ -59,18 +61,25 @@ async def get_deployment(
     return deployment
 
 
-@router.get("", response_model=List[DeploymentResponse])
+@router.get("", response_model=PaginatedResponse[DeploymentResponse])
 async def list_deployments(
     project_id: str,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     """List deployments in project"""
     service = DeploymentService(db)
-    deployments = await service.list_deployments(project_id, skip, limit)
-    return deployments
+    skip = (page - 1) * page_size
+    deployments = await service.list_deployments(project_id, skip, page_size)
+    total = await service.count_deployments(project_id)
+    return create_paginated_response(
+        [DeploymentResponse.model_validate(d) for d in deployments],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @router.patch("/{deployment_id}", response_model=DeploymentResponse)

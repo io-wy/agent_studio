@@ -55,6 +55,12 @@ class TrainingJobRepository:
         )
         return list(result.scalars().all())
 
+    async def count_by_project(self, project_id: str) -> int:
+        result = await self.db.execute(
+            select(TrainingJob).where(TrainingJob.project_id == project_id)
+        )
+        return len(list(result.scalars().all()))
+
     async def update(self, job: TrainingJob, **kwargs) -> TrainingJob:
         for key, value in kwargs.items():
             if value is not None and hasattr(job, key):
@@ -103,6 +109,12 @@ class ModelRepository:
         )
         return list(result.scalars().all())
 
+    async def count_by_project(self, project_id: str) -> int:
+        result = await self.db.execute(
+            select(Model).where(Model.project_id == project_id)
+        )
+        return len(list(result.scalars().all()))
+
     async def update(self, model: Model, **kwargs) -> Model:
         for key, value in kwargs.items():
             if value is not None and hasattr(model, key):
@@ -148,13 +160,20 @@ class ModelVersionRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_by_model(self, model_id: str) -> List[ModelVersion]:
+    async def list_by_model(self, model_id: str, skip: int = 0, limit: int = 100) -> List[ModelVersion]:
         result = await self.db.execute(
             select(ModelVersion)
             .where(ModelVersion.model_id == model_id)
-            .order_by(ModelVersion.created_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_by_model(self, model_id: str) -> int:
+        result = await self.db.execute(
+            select(ModelVersion).where(ModelVersion.model_id == model_id)
+        )
+        return len(list(result.scalars().all()))
 
     async def update(self, model_version: ModelVersion, **kwargs) -> ModelVersion:
         for key, value in kwargs.items():

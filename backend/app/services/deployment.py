@@ -80,6 +80,10 @@ class DeploymentService:
         """List deployments in project"""
         return await self.deployment_repo.list_by_project(project_id, skip, limit)
 
+    async def count_deployments(self, project_id: str) -> int:
+        """Count deployments in project"""
+        return await self.deployment_repo.count_by_project(project_id)
+
     async def deploy(self, deployment_id: str) -> Deployment:
         """Deploy to Kubernetes"""
         deployment = await self.deployment_repo.get(deployment_id)

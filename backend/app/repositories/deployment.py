@@ -63,6 +63,12 @@ class DeploymentRepository:
         )
         return list(result.scalars().all())
 
+    async def count_by_project(self, project_id: str) -> int:
+        result = await self.db.execute(
+            select(Deployment).where(Deployment.project_id == project_id)
+        )
+        return len(list(result.scalars().all()))
+
     async def list_by_model_version(self, model_version_id: str) -> List[Deployment]:
         result = await self.db.execute(
             select(Deployment)

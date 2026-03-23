@@ -13,6 +13,8 @@ from app.schemas import (
     TenantCreate, TenantUpdate, TenantResponse,
     ProjectCreate, ProjectUpdate, ProjectResponse,
     QuotaInfo, QuotaUpdate,
+    PaginatedResponse,
+    create_paginated_response,
 )
 from app.security import get_current_user, TokenPayload
 
@@ -71,17 +73,24 @@ async def get_tenant(
     return tenant
 
 
-@router.get("", response_model=List[TenantResponse])
+@router.get("", response_model=PaginatedResponse[TenantResponse])
 async def list_tenants(
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     """List all tenants"""
     repo = TenantRepository(db)
-    tenants = await repo.list_(skip=skip, limit=limit)
-    return tenants
+    skip = (page - 1) * page_size
+    tenants = await repo.list_(skip=skip, limit=page_size)
+    total = await repo.count()
+    return create_paginated_response(
+        [TenantResponse.model_validate(t) for t in tenants],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @router.patch("/{tenant_id}", response_model=TenantResponse)
@@ -173,18 +182,25 @@ async def get_project(
     return project
 
 
-@project_router.get("", response_model=List[ProjectResponse])
+@project_router.get("", response_model=PaginatedResponse[ProjectResponse])
 async def list_projects(
     tenant_id: str,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     """List projects by tenant"""
     repo = ProjectRepository(db)
-    projects = await repo.list_by_tenant(tenant_id, skip=skip, limit=limit)
-    return projects
+    skip = (page - 1) * page_size
+    projects = await repo.list_by_tenant(tenant_id, skip=skip, limit=page_size)
+    total = await repo.count_by_tenant(tenant_id)
+    return create_paginated_response(
+        [ProjectResponse.model_validate(p) for p in projects],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @project_router.patch("/{project_id}", response_model=ProjectResponse)

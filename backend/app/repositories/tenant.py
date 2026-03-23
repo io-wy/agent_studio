@@ -41,6 +41,10 @@ class TenantRepository:
         )
         return list(result.scalars().all())
 
+    async def count(self) -> int:
+        result = await self.db.execute(select(Tenant))
+        return len(list(result.scalars().all()))
+
     async def update(self, tenant: Tenant, **kwargs) -> Tenant:
         for key, value in kwargs.items():
             if value is not None and hasattr(tenant, key):
@@ -85,6 +89,12 @@ class ProjectRepository:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_by_tenant(self, tenant_id: str) -> int:
+        result = await self.db.execute(
+            select(Project).where(Project.tenant_id == tenant_id)
+        )
+        return len(list(result.scalars().all()))
 
     async def update(self, project: Project, **kwargs) -> Project:
         for key, value in kwargs.items():

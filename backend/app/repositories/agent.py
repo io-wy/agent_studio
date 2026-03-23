@@ -55,6 +55,12 @@ class AgentSpecRepository:
         )
         return list(result.scalars().all())
 
+    async def count_by_project(self, project_id: str) -> int:
+        result = await self.db.execute(
+            select(AgentSpec).where(AgentSpec.project_id == project_id)
+        )
+        return len(list(result.scalars().all()))
+
     async def update(self, spec: AgentSpec, **kwargs) -> AgentSpec:
         for key, value in kwargs.items():
             if value is not None and hasattr(spec, key):
@@ -100,13 +106,21 @@ class AgentRevisionRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_by_spec(self, agent_spec_id: str) -> List[AgentRevision]:
+    async def list_by_spec(self, agent_spec_id: str, skip: int = 0, limit: int = 100) -> List[AgentRevision]:
         result = await self.db.execute(
             select(AgentRevision)
             .where(AgentRevision.agent_spec_id == agent_spec_id)
             .order_by(AgentRevision.revision.desc())
+            .offset(skip)
+            .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_by_spec(self, agent_spec_id: str) -> int:
+        result = await self.db.execute(
+            select(AgentRevision).where(AgentRevision.agent_spec_id == agent_spec_id)
+        )
+        return len(list(result.scalars().all()))
 
     async def get_latest(self, agent_spec_id: str) -> Optional[AgentRevision]:
         result = await self.db.execute(
@@ -161,6 +175,12 @@ class AgentRunRepository:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_by_revision(self, revision_id: str) -> int:
+        result = await self.db.execute(
+            select(AgentRun).where(AgentRun.revision_id == revision_id)
+        )
+        return len(list(result.scalars().all()))
 
     async def update(self, run: AgentRun, **kwargs) -> AgentRun:
         for key, value in kwargs.items():

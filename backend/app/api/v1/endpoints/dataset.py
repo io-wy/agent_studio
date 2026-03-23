@@ -14,6 +14,8 @@ from app.schemas import (
     DatasetCreate, DatasetUpdate, DatasetResponse,
     DatasetVersionCreate, DatasetVersionUpdate, DatasetVersionResponse,
     DatasetImportRequest, DatasetValidateRequest, DatasetSplitRequest,
+    PaginatedResponse,
+    create_paginated_response,
 )
 from app.security import get_current_user, TokenPayload
 
@@ -64,18 +66,25 @@ async def get_dataset(
     return dataset
 
 
-@router.get("", response_model=List[DatasetResponse])
+@router.get("", response_model=PaginatedResponse[DatasetResponse])
 async def list_datasets(
     project_id: str,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     """List datasets in project"""
     service = DatasetService(db)
-    datasets = await service.list_datasets(project_id, skip, limit)
-    return datasets
+    skip = (page - 1) * page_size
+    datasets = await service.list_datasets(project_id, skip, page_size)
+    total = await service.count_datasets(project_id)
+    return create_paginated_response(
+        [DatasetResponse.model_validate(d) for d in datasets],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @router.patch("/{dataset_id}", response_model=DatasetResponse)

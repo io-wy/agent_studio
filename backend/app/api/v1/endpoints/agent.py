@@ -11,6 +11,8 @@ from app.schemas import (
     AgentSpecCreate, AgentSpecUpdate, AgentSpecResponse,
     AgentRevisionCreate, AgentRevisionUpdate, AgentRevisionResponse, AgentRevisionPublishRequest,
     AgentRunCreate, AgentRunUpdate, AgentRunResponse, AgentRunInterruptRequest,
+    PaginatedResponse,
+    create_paginated_response,
 )
 from app.security import get_current_user, TokenPayload
 
@@ -55,18 +57,25 @@ async def get_agent(
     return agent
 
 
-@router.get("", response_model=List[AgentSpecResponse])
+@router.get("", response_model=PaginatedResponse[AgentSpecResponse])
 async def list_agents(
     project_id: str,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     """List agents in project"""
     service = AgentService(db)
-    agents = await service.list_agents(project_id, skip, limit)
-    return agents
+    skip = (page - 1) * page_size
+    agents = await service.list_agents(project_id, skip, page_size)
+    total = await service.count_agents(project_id)
+    return create_paginated_response(
+        [AgentSpecResponse.model_validate(a) for a in agents],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @router.patch("/{agent_id}", response_model=AgentSpecResponse)
@@ -105,16 +114,25 @@ async def create_revision(
     return revision
 
 
-@router.get("/{agent_id}/revisions", response_model=List[AgentRevisionResponse])
+@router.get("/{agent_id}/revisions", response_model=PaginatedResponse[AgentRevisionResponse])
 async def list_revisions(
     agent_id: str,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     """List all revisions of an agent"""
     service = AgentService(db)
-    revisions = await service.list_revisions(agent_id)
-    return revisions
+    skip = (page - 1) * page_size
+    revisions = await service.list_revisions(agent_id, skip, page_size)
+    total = await service.count_revisions(agent_id)
+    return create_paginated_response(
+        [AgentRevisionResponse.model_validate(r) for r in revisions],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 # === AgentRevision specific endpoints ===
@@ -191,18 +209,25 @@ async def get_agent_run(
     return run
 
 
-@run_router.get("", response_model=List[AgentRunResponse])
+@run_router.get("", response_model=PaginatedResponse[AgentRunResponse])
 async def list_agent_runs(
     revision_id: str,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     """List runs for a revision"""
     service = AgentService(db)
-    runs = await service.list_runs(revision_id, skip, limit)
-    return runs
+    skip = (page - 1) * page_size
+    runs = await service.list_runs(revision_id, skip, page_size)
+    total = await service.count_runs(revision_id)
+    return create_paginated_response(
+        [AgentRunResponse.model_validate(r) for r in runs],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @run_router.post("/{run_id}/interrupt")

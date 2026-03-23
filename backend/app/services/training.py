@@ -63,6 +63,10 @@ class TrainingService:
         """List training jobs in project"""
         return await self.job_repo.list_by_project(project_id, skip, limit)
 
+    async def count_jobs(self, project_id: str) -> int:
+        """Count training jobs in project"""
+        return await self.job_repo.count_by_project(project_id)
+
     async def submit_job(self, job_id: str) -> TrainingJob:
         """Submit training job to Kubernetes"""
         job = await self.job_repo.get(job_id)

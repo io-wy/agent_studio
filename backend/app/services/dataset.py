@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Dataset, DatasetVersion, DatasetStatus, DatasetVersionStatus
 from app.repositories.dataset import DatasetRepository, DatasetVersionRepository
 from app.integrations.object_store import object_store
-from app.integrations.lakefs import lakefs_client
 
 
 class DatasetService:
@@ -18,7 +17,6 @@ class DatasetService:
         self.db = db
         self.repo = DatasetRepository(db)
         self.version_repo = DatasetVersionRepository(db)
-        self.lakefs = lakefs_client
 
     async def create_dataset(
         self,
@@ -50,6 +48,10 @@ class DatasetService:
     async def list_datasets(self, project_id: str, skip: int = 0, limit: int = 100) -> List[Dataset]:
         """List datasets in project"""
         return await self.repo.get_by_project(project_id, skip, limit)
+
+    async def count_datasets(self, project_id: str) -> int:
+        """Count datasets in project"""
+        return await self.repo.count_by_project(project_id)
 
     async def upload_file(
         self,
