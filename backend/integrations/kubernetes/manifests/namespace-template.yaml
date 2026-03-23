@@ -1,0 +1,121 @@
+# Namespace Template for Tenant Projects
+# This is the template that will be instantiated for each project
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${PROJECT_NAMESPACE}
+  labels:
+    # Enable Kueue job management
+    agent-studio.ai/managed: "true"
+    agent-studio.ai/tenant: ${TENANT_ID}
+    agent-studio.ai/project: ${PROJECT_ID}
+    # Istio sidecar injection (if using service mesh)
+    istio-injection: "enabled"
+
+---
+# ResourceQuota for namespace resource limits
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ${PROJECT_NAMESPACE}-quota
+  namespace: ${PROJECT_NAMESPACE}
+spec:
+  hard:
+    requests.cpu: "16"
+    requests.memory: 32Gi
+    limits.cpu: "32"
+    limits.memory: 64Gi
+    requests.nvidia.com/gpu: "2"
+    limits.nvidia.com/gpu: "4"
+    persistentvolumeclaims: "10"
+    services.loadbalancers: "1"
+    services.nodeports: "0"
+
+---
+# LimitRange for default resource requests
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: ${PROJECT_NAMESPACE}-limits
+  namespace: ${PROJECT_NAMESPACE}
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "500m"
+        memory: "1Gi"
+      defaultRequest:
+        cpu: "100m"
+        memory: "256Mi"
+    - type: PersistentVolumeClaim
+      default:
+        storage: "10Gi"
+
+---
+# NetworkPolicy for pod isolation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${PROJECT_NAMESPACE}-default
+  namespace: ${PROJECT_NAMESPACE}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from same namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ${PROJECT_NAMESPACE}
+    # Allow from ingress-nginx
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+    # Allow from API server
+    - from:
+        - namespaceSelector: {}
+
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow to object storage (MinIO)
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: minio
+      ports:
+        - protocol: TCP
+          port: 9000
+          endPort: 9001
+    # Allow to API server
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+---
+# LocalQueue for Kueue job scheduling
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: LocalQueue
+metadata:
+  name: default-queue
+  namespace: ${PROJECT_NAMESPACE}
+spec:
+  clusterQueue: gpu-cluster-queue

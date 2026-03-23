@@ -1,0 +1,97 @@
+# RBAC Configuration for Agent Studio Jobs
+# Apply after the manifests: kubectl apply -f kube-manifests/rbac.yaml
+
+---
+# Service account for training and agent run jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-studio-job
+  namespace: agent-studio-jobs
+  labels:
+    app.kubernetes.io/name: agent-studio
+    app.kubernetes.io/component: service-account
+
+---
+# Role for project namespace access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-studio-project
+  namespace: agent-studio-jobs
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["kueue.x-k8s.io"]
+    resources: ["workloads"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+# Role binding for job service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-studio-project-binding
+  namespace: agent-studio-jobs
+subjects:
+  - kind: ServiceAccount
+    name: agent-studio-job
+    namespace: agent-studio-jobs
+roleRef:
+  kind: Role
+  name: agent-studio-project
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Cluster role for multi-namespace access (system admin)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-studio-system
+  labels:
+    app.kubernetes.io/name: agent-studio
+    app.kubernetes.io/component: cluster-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+    verbs: ["*"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["*"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["*"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["*"]
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["inferenceservices", "predictors"]
+    verbs: ["*"]
+  - apiGroups: ["kueue.x-k8s.io"]
+    resources: ["clusterqueues", "localqueues", "workloads"]
+    verbs: ["*"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["rolebindings", "roles"]
+    verbs: ["*"]
+
+---
+# Cluster role binding for system admin
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agent-studio-system-binding
+subjects:
+  - kind: ServiceAccount
+    name: agent-studio-job
+    namespace: agent-studio-jobs
+roleRef:
+  kind: ClusterRole
+  name: agent-studio-system
+  apiGroup: rbac.authorization.k8s.io

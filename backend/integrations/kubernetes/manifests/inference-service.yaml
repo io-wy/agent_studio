@@ -1,0 +1,96 @@
+# InferenceService Template for Model Deployment
+# Uses KServe for OpenAI-compatible serving
+
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: ${DEPLOYMENT_NAME}
+  namespace: ${PROJECT_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: agent-studio
+    app.kubernetes.io/component: inference-service
+    app.kubernetes.io/instance: ${DEPLOYMENT_ID}
+    agent-studio.ai/tenant: ${TENANT_ID}
+    agent-studio.ai/project: ${PROJECT_ID}
+    agent-studio.ai/deployment: ${DEPLOYMENT_ID}
+  annotations:
+    agent-studio.ai/created-by: ${CREATED_BY}
+    # Enable autoscaling
+    autoscaling.knative.dev/minScale: "${MIN_REPLICAS}"
+    autoscaling.knative.dev/maxScale: "${MAX_REPLICAS}"
+    # Target concurrency per replica
+    autoscaling.knative.dev/targetConcurrency: "10"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: ${MODEL_FORMAT}  # pytorch, vllm, triton, etc.
+      runtime: ${RUNTIME}  # kserve/mlserver, vllm
+      storageUri: ${MODEL_STORAGE_URI}  # s3://bucket/path
+      resources:
+        requests:
+          cpu: ${CPU_REQUEST}
+          memory: ${MEMORY_REQUEST}
+          nvidia.com/gpu: ${GPU_REQUEST}
+        limits:
+          cpu: ${CPU_LIMIT}
+          memory: ${MEMORY_LIMIT}
+          nvidia.com/gpu: ${GPU_LIMIT}
+      env:
+        - name: S3_ENDPOINT
+          value: "${S3_ENDPOINT}"
+        - name: AWS_ACCESS_KEY_ID
+          value: "${S3_ACCESS_KEY}"
+        - name: AWS_SECRET_ACCESS_KEY
+          value: "${S3_SECRET_KEY}"
+        - name: MLFLOW_MODEL_URI
+          value: "${MLFLOW_MODEL_URI}"
+    # Max replicas for HPA
+    maxReplicas: ${MAX_REPLICAS}
+    minReplicas: ${MIN_REPLICAS}
+
+  # Optional: Transformer for pre/post processing
+  # transformer:
+  #   name: ${DEPLOYMENT_NAME}-transformer
+  #   customContainer:
+  #     image: ${TRANSFORMER_IMAGE}
+  #     resources:
+  #       requests:
+  #         cpu: "500m"
+  #         memory: "1Gi"
+
+---
+# Service for internal access
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${DEPLOYMENT_NAME}-internal
+  namespace: ${PROJECT_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: agent-studio
+    app.kubernetes.io/component: inference-service-internal
+spec:
+  type: ClusterIP
+  selector:
+    serving.kserve.io/inferenceservice: ${DEPLOYMENT_NAME}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+    - name: grpc
+      port: 8081
+      targetPort: 8081
+
+---
+# PodDisruptionBudget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ${DEPLOYMENT_NAME}-pdb
+  namespace: ${PROJECT_NAMESPACE}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: ${DEPLOYMENT_NAME}
