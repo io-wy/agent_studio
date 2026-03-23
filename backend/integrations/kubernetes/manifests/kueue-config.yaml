@@ -1,0 +1,45 @@
+# Kueue Configuration for Agent Studio
+# Apply after Kueue is installed: kubectl apply -f kube-manifests/kueue-config.yaml
+
+---
+# ClusterQueue for GPU resources
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ClusterQueue
+metadata:
+  name: gpu-cluster-queue
+spec:
+  namespaceSelector:
+    matchLabels:
+      agent-studio.io/managed: "true"
+  resourceGroups:
+    - coveredResources: ["cpu", "memory", "nvidia.com/gpu"]
+      resources:
+        - name: "cpu"
+          nominalQuota: 32
+        - name: "memory"
+          nominalQuota: 64Gi
+        - name: "nvidia.com/gpu"
+          nominalQuota: 4
+  borrowingLimits:
+    nvidia.com/gpu: 8
+  cohort: agent-studio-cohort
+
+---
+# LocalQueue per tenant/project namespace
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: LocalQueue
+metadata:
+  name: training-queue
+  namespace: agent-studio-jobs
+spec:
+  clusterQueue: gpu-cluster-queue
+
+---
+# Default workload priority class
+apiVersion: scheduling.k8s.io/v1
+PriorityClass:
+metadata:
+  name: agent-studio-workload
+value: 1000000
+globalDefault: false
+description: "Priority for Agent Studio training jobs"

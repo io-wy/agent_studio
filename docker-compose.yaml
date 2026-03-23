@@ -52,6 +52,92 @@ services:
       timeout: 20s
       retries: 3
 
+  # lakeFS for data versioning
+  lakefs:
+    image: treehouse.lakefs/lakefs:1.1.0
+    container_name: agent-studio-lakefs
+    environment:
+      LAKEFS_DATABASE_TYPE: postgres
+      LAKEFS_DATABASE_CONNECTION_STRING: postgres://agent:agent@postgres:5432/lakefs
+      LAKEFS_SECRET_KEY: lake-secret-key-change-in-production
+      LAKEFS_AUTH_ENCRYPT_SECRET_KEY: encrypt-secret-key-change-in-production
+      LAKEFS_LISTEN_ADDRESS: "0.0.0.0:8000"
+      LAKEFS_BASE_URL: http://localhost:8000
+      LAKEFS_BLOCKSTORE_TYPE: s3
+      LAKEFS_BLOCKSTORE_S3_FORCE_PATH_STYLE: "true"
+      LAKEFS_BLOCKSTORE_S3_ENDPOINT: http://minio:9000
+      LAKEFS_BLOCKSTORE_S3_ACCESS_KEY_ID: minioadmin
+      LAKEFS_BLOCKSTORE_S3_SECRET_ACCESS_KEY: minioadmin
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/_health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # MLflow for model registry
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    container_name: agent-studio-mlflow
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MLFLOW_TRACKING_URI: postgresql://agent:agent@postgres:5432/mlflow
+      MLFLOW_ARTIFACT_ROOT: s3://mlflow-artifacts/
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://agent:agent@postgres:5432/mlflow
+      --artifacts-destination s3://mlflow-artifacts/
+      --artifacts-secondary-root s3://mlflow-artifacts/
+      --host 0.0.0.0
+      --port 5000
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agent-studio-backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://agent:agent@postgres:5432/agent_studio
+      - REDIS_URL=redis://redis:6379/0
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET=agent-studio
+      - LAKEFS_ENDPOINT=http://lakefs:8000
+      - LAKEFS_ACCESS_KEY=minioadmin
+      - LAKEFS_SECRET_KEY=minioadmin
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - K8S_CONFIG_PATH=/root/.kube/config
+      - K8S_NAMESPACE_PREFIX=agent-studio
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ~/.kube:/root/.kube:ro
+
 volumes:
   postgres_data:
   redis_data:

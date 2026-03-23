@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Dataset, DatasetVersion, DatasetStatus, DatasetVersionStatus
 from app.repositories.dataset import DatasetRepository, DatasetVersionRepository
 from app.integrations.object_store import object_store
+from app.integrations.lakefs import lakefs_client
 
 
 class DatasetService:
@@ -17,6 +18,7 @@ class DatasetService:
         self.db = db
         self.repo = DatasetRepository(db)
         self.version_repo = DatasetVersionRepository(db)
+        self.lakefs = lakefs_client
 
     async def create_dataset(
         self,
@@ -244,3 +246,98 @@ class DatasetService:
             "txt": "text/plain",
         }
         return content_types.get(ext, "application/octet-stream")
+
+    # === lakeFS Operations ===
+
+    def create_lakefs_repo(
+        self,
+        dataset_id: str,
+        project_id: str,
+        storage_namespace: str,
+    ) -> Dict[str, Any]:
+        """Create lakeFS repository for dataset"""
+        repo_name = f"dataset-{dataset_id}"
+        try:
+            return self.lakefs.create_repository(
+                name=repo_name,
+                storage_namespace=storage_namespace,
+                description=f"Dataset {dataset_id}",
+            )
+        except Exception as e:
+            # Repository might already exist
+            return {"name": repo_name, "error": str(e)}
+
+    def create_dataset_branch(
+        self,
+        dataset_id: str,
+        version: str,
+        source_branch: str = "main",
+    ) -> Dict[str, Any]:
+        """Create a branch for dataset version"""
+        repo_name = f"dataset-{dataset_id}"
+        branch_name = f"v{version}"
+        try:
+            return self.lakefs.create_branch(repo_name, branch_name, source_branch)
+        except Exception as e:
+            return {"error": str(e)}
+
+    def upload_to_lakefs(
+        self,
+        dataset_id: str,
+        version: str,
+        path: str,
+        content: bytes,
+    ) -> Dict[str, Any]:
+        """Upload file to lakeFS branch"""
+        repo_name = f"dataset-{dataset_id}"
+        branch_name = f"v{version}"
+        try:
+            return self.lakefs.upload_file(repo_name, branch_name, path, content)
+        except Exception as e:
+            return {"error": str(e)}
+
+    def commit_lakefs_version(
+        self,
+        dataset_id: str,
+        version: str,
+        message: str,
+    ) -> Dict[str, Any]:
+        """Commit changes to lakeFS branch"""
+        repo_name = f"dataset-{dataset_id}"
+        branch_name = f"v{version}"
+        try:
+            return self.lakefs.commit(repo_name, branch_name, message)
+        except Exception as e:
+            return {"error": str(e)}
+
+    def create_lakefs_tag(
+        self,
+        dataset_id: str,
+        version: str,
+        tag_name: str,
+    ) -> Dict[str, Any]:
+        """Create tag for dataset version"""
+        repo_name = f"dataset-{dataset_id}"
+        # Get latest commit
+        commits = self.lakefs.log_commits(repo_name, f"v{version}", limit=1)
+        if not commits:
+            return {"error": "No commits found"}
+        commit_id = commits[0]["id"]
+        try:
+            return self.lakefs.create_tag(repo_name, tag_name, commit_id)
+        except Exception as e:
+            return {"error": str(e)}
+
+    def list_lakefs_files(
+        self,
+        dataset_id: str,
+        version: str,
+        path: str = "",
+    ) -> List[Dict[str, Any]]:
+        """List files in lakeFS branch"""
+        repo_name = f"dataset-{dataset_id}"
+        branch_name = f"v{version}"
+        try:
+            return self.lakefs.list_files(repo_name, branch_name, path)
+        except Exception:
+            return []
